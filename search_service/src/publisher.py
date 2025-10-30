@@ -10,16 +10,10 @@ from .telegram import TelegramPublisher
 
 logger = logging.getLogger(__name__)
 
-# Instantiate the publisher using configuration. It will either send to Telegram or log to console.
 publisher = TelegramPublisher(settings.telegram_bot_token, settings.telegram_chat_id)
 
 
 def _handle(message: CompletedSearchTaskMessage) -> None:
-    """
-    Handle a completed search task by sending it to Telegram.
-
-    Exceptions during sending are logged; the caller will mark the message as acknowledged.
-    """
     try:
         publisher.send(
             task_id=message.task_id,
@@ -27,7 +21,7 @@ def _handle(message: CompletedSearchTaskMessage) -> None:
             short_summary=message.short_summary,
             summary=message.summary,
         )
-    except Exception as exc:  # pylint: disable=broad-exception-caught
+    except Exception as exc:
         logger.exception("Failed to publish completed task %s: %s", message.task_id, exc)
 
 

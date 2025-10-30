@@ -19,12 +19,6 @@ def _utcnow() -> datetime:
 
 
 def handle(task: RawSearchTaskMessage) -> CompletedSearchTaskMessage:
-    """Process a raw search task via the AI pipeline.
-
-    This function updates the task status, runs the AI search, saves the result,
-    and returns a ``CompletedSearchTaskMessage``. Exceptions are propagated to the
-    consumer callback to be handled and logged there.
-    """
     logger.info("Processing task %s", task.task_id)
     update_status(task.task_id, SearchTaskStatus.PROCESSING)
     short_summary, summary = run_ai_search(task.text)
