@@ -1,0 +1,253 @@
+openapi: 3.1.1
+info:
+  title: Search Service API
+  version: 1.0.0
+servers:
+  - url: http://localhost:8000
+paths:
+  /api/v1/search-tasks:
+    post:
+      tags:
+        - SearchTasks
+      summary: Enqueue a new search task
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SearchTaskCreateRequest"
+      responses:
+        "201":
+          description: Task accepted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchTaskCreateResponse"
+    get:
+      tags:
+        - SearchTasks
+      summary: List search tasks
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/SearchTaskStatus"
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: pageSize
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Paginated list of tasks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchTaskPage"
+  /api/v1/search-tasks/{taskId}:
+    get:
+      tags:
+        - SearchTasks
+      summary: Retrieve task by identifier
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Task found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchTask"
+        "404":
+          description: Task not found
+  /api/v1/search-tasks/{taskId}/retry:
+    post:
+      tags:
+        - SearchTasks
+      summary: Retry a finished or failed task
+      parameters:
+        - name: taskId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "202":
+          description: Task requeued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchTaskRetryResponse"
+        "404":
+          description: Task not found
+        "409":
+          description: Task is still running
+components:
+  schemas:
+    SearchTaskStatus:
+      type: string
+      enum:
+        - queued
+        - processing
+        - done
+        - failed
+    SearchTaskCreateRequest:
+      type: object
+      required:
+        - telegramId
+        - text
+      properties:
+        telegramId:
+          type: string
+          description: Telegram chat identifier that originated the task
+        text:
+          type: string
+          description: User prompt to search and summarise
+    SearchTaskCreateResponse:
+      type: object
+      required:
+        - taskId
+        - status
+        - queuedAt
+      properties:
+        taskId:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/SearchTaskStatus"
+        queuedAt:
+          type: string
+          format: date-time
+    SearchTaskRetryResponse:
+      type: object
+      required:
+        - taskId
+        - status
+      properties:
+        taskId:
+          type: string
+          format: uuid
+        status:
+          $ref: "#/components/schemas/SearchTaskStatus"
+    SearchTask:
+      type: object
+      required:
+        - taskId
+        - telegramId
+        - text
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        taskId:
+          type: string
+          format: uuid
+        telegramId:
+          type: string
+        text:
+          type: string
+        status:
+          $ref: "#/components/schemas/SearchTaskStatus"
+        shortSummary:
+          type:
+            - string
+            - "null"
+        summary:
+          type:
+            - string
+            - "null"
+        error:
+          type:
+            - string
+            - "null"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    PaginationMeta:
+      type: object
+      required:
+        - page
+        - pageSize
+        - totalItems
+        - totalPages
+      properties:
+        page:
+          type: integer
+        pageSize:
+          type: integer
+        totalItems:
+          type: integer
+        totalPages:
+          type: integer
+    SearchTaskPage:
+      type: object
+      required:
+        - data
+        - meta
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchTask"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+    RawSearchTaskMessage:
+      type: object
+      required:
+        - taskId
+        - telegramId
+        - text
+        - requestedAt
+      properties:
+        taskId:
+          type: string
+          format: uuid
+        telegramId:
+          type: string
+        text:
+          type: string
+        requestedAt:
+          type: string
+          format: date-time
+    CompletedSearchTaskMessage:
+      type: object
+      required:
+        - taskId
+        - telegramId
+        - status
+        - shortSummary
+        - summary
+        - completedAt
+      properties:
+        taskId:
+          type: string
+          format: uuid
+        telegramId:
+          type: string
+        status:
+          $ref: "#/components/schemas/SearchTaskStatus"
+        shortSummary:
+          type: string
+        summary:
+          type: string
+        completedAt:
+          type: string
+          format: date-time
