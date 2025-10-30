@@ -13,6 +13,10 @@ from .config import settings
 from .schemas import CompletedSearchTaskMessage, RawSearchTaskMessage
 from .statuses import SearchTaskStatus
 
+# Configure logging for this module
+import logging
+logger = logging.getLogger(__name__)
+
 
 def _parameters() -> pika.URLParameters:
     return pika.URLParameters(settings.rabbitmq_url)
@@ -67,16 +71,27 @@ def consume_raw_tasks(
     channel.basic_qos(prefetch_count=prefetch_count)
 
     def _on_message(ch: BlockingChannel, method: Basic.Deliver, properties: BasicProperties, body: bytes) -> None:
+        """
+        Callback for processing raw search tasks.
+
+        Attempts to parse the incoming message into a ``RawSearchTaskMessage`` and hand it off to
+        the provided ``handler``. Any validation or processing errors are logged and result in
+        a failed task being published to the completed queue. Messages that cannot be parsed
+        are dropped without requeueing.
+        """
         try:
             payload = RawSearchTaskMessage.model_validate_json(body)
         except ValidationError as exc:
+            # Drop malformed messages. Do not requeue to avoid poison messages.
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
-            print(f"[queue] invalid payload dropped: {exc}")  # noqa: T201
+            logger.warning("Invalid raw payload dropped: %s", exc)
             return
 
         try:
             result = handler(payload)
         except Exception as exc:  # pylint: disable=broad-exception-caught
+            # Log exception and publish a failure message so that the publisher can handle it.
+            logger.exception("Exception while handling raw task %s: %s", payload.task_id, exc)
             failure = CompletedSearchTaskMessage(
                 task_id=payload.task_id,
                 telegram_id=payload.telegram_id,
@@ -89,6 +104,7 @@ def consume_raw_tasks(
             ch.basic_ack(delivery_tag=method.delivery_tag)
             return
 
+        # Publish successful result
         publish_completed_task(result)
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
@@ -110,13 +126,22 @@ def consume_completed_tasks(
     channel.basic_qos(prefetch_count=prefetch_count)
 
     def _on_message(ch: BlockingChannel, method: Basic.Deliver, properties: BasicProperties, body: bytes) -> None:
+        """
+        Callback for processing completed search tasks.
+
+        Parses incoming completed task messages and passes them to the provided handler.
+        Invalid messages are dropped and logged.
+        """
         try:
             payload = CompletedSearchTaskMessage.model_validate_json(body)
         except ValidationError as exc:
             ch.basic_nack(delivery_tag=method.delivery_tag, requeue=False)
-            print(f"[queue] invalid completed payload dropped: {exc}")  # noqa: T201
+            logger.warning("Invalid completed payload dropped: %s", exc)
             return
-        handler(payload)
+        try:
+            handler(payload)
+        except Exception:
+            logger.exception("Exception while handling completed task %s", payload.task_id)
         ch.basic_ack(delivery_tag=method.delivery_tag)
 
     channel.basic_consume(queue=settings.completed_queue_name, on_message_callback=_on_message, auto_ack=False)
