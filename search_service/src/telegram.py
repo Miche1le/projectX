@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 import time
 import urllib.parse
@@ -9,8 +10,6 @@ from datetime import datetime, timezone
 from typing import Optional
 
 from .repository import record_completed_message
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -75,7 +74,7 @@ class TelegramPublisher:
                     time.sleep(self.retry_delay)
         else:
             # Fall back to console output if no token/chat is configured
-            logger.info("[telegram] Task %s: %s\n%s", task_id, short_summary, summary)
+            logger.warning("[telegram] Task %s: %s\n%s", task_id, short_summary, summary)
             delivered_at = self._now()
 
         # Persist the delivery result if the message was delivered successfully

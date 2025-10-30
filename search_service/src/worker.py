@@ -47,6 +47,7 @@ def handle(task: RawSearchTaskMessage) -> CompletedSearchTaskMessage:
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO)
     init_db()
     consume_raw_tasks(handle, prefetch_count=1)
 

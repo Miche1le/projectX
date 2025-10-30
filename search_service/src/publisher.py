@@ -1,12 +1,12 @@
 from __future__ import annotations
 
+import logging
+
+from .config import settings
 from .database import init_db
 from .queueing import consume_completed_tasks
 from .schemas import CompletedSearchTaskMessage
 from .telegram import TelegramPublisher
-from .config import settings
-
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +32,7 @@ def _handle(message: CompletedSearchTaskMessage) -> None:
 
 
 def main() -> None:
+    logging.basicConfig(level=logging.INFO)
     init_db()
     consume_completed_tasks(_handle)
 

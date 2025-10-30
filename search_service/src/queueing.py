@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from contextlib import contextmanager
 from datetime import datetime, timezone
 from typing import Callable
@@ -13,8 +14,6 @@ from .config import settings
 from .schemas import CompletedSearchTaskMessage, RawSearchTaskMessage
 from .statuses import SearchTaskStatus
 
-# Configure logging for this module
-import logging
 logger = logging.getLogger(__name__)
 
 
